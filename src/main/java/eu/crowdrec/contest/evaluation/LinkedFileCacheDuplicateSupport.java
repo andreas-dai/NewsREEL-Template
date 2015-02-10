@@ -7,6 +7,7 @@ import java.io.FileReader;
 import java.io.FilenameFilter;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.InputStreamReader;
 import java.io.SequenceInputStream;
 import java.util.Arrays;
 import java.util.Comparator;
@@ -123,7 +124,7 @@ public class LinkedFileCacheDuplicateSupport {
 
 		
 		try {
-			brImpresssions = new BufferedReader(new FileReader(_groundTruthFilename));
+			brImpresssions = new BufferedReader(new InputStreamReader(is));
 			return true;
 		} catch (Exception e) {
 			e.printStackTrace();
