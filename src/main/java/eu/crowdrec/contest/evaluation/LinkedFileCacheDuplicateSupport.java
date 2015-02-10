@@ -1,11 +1,20 @@
 package eu.crowdrec.contest.evaluation;
 
 import java.io.BufferedReader;
+import java.io.File;
+import java.io.FileInputStream;
 import java.io.FileReader;
+import java.io.FilenameFilter;
 import java.io.IOException;
+import java.io.InputStream;
+import java.io.SequenceInputStream;
+import java.util.Arrays;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedList;
+import java.util.Vector;
+import java.util.zip.GZIPInputStream;
 
 /**
  * The class buffers large files for the recommendation quality evaluation.
@@ -66,9 +75,53 @@ public class LinkedFileCacheDuplicateSupport {
 	 * @param groundTruthFilename the name of the groundTruth file
 	 * @return success
 	 */
-	public boolean initialize(final String _groundTruthFilename, final long _desiredEvaluationTimespan) {
+	public boolean initialize(final String _groundTruthFilename, final long _desiredEvaluationTimespan) throws IOException {
 		
 		this.desiredEvaluationTimespan = _desiredEvaluationTimespan;
+		
+		// support a list of files in a directory
+		File inLogFile = new File(_groundTruthFilename);
+		InputStream is;
+		if (inLogFile.isFile()) {
+			is = new FileInputStream(inLogFile);
+			// support gZip files
+			if (inLogFile.getName().toLowerCase().endsWith(".gz")) {
+				is = new GZIPInputStream(is);
+			}
+		}
+		else {
+			// if the input is a directory, consider all files based on a pattern
+			File[] childs = inLogFile.listFiles(new FilenameFilter() {
+				
+				@Override
+				public boolean accept(File dir, String name) {
+					final String fileName = name.toLowerCase();
+					return fileName.endsWith("data.idomaar.txt.gz") || fileName.endsWith("data.idomaar.txt");
+				}
+			});
+			if (childs == null || childs.length == 0) {
+				throw new IOException("invalid inLogFileName or empty directory");
+			}
+			Arrays.sort(childs, new Comparator<File>() {
+
+				@Override
+				public int compare(File o1, File o2) {
+					return o1.getName().compareTo(o2.getName());
+				}
+			});
+			Vector<InputStream> isChilds = new Vector<InputStream>();
+			for (int i = 0; i< childs.length; i++) {
+				InputStream tmpIS = new FileInputStream(childs[i]);
+				// support gZip files
+				if (childs[i].getName().toLowerCase().endsWith(".gz")) {
+					tmpIS = new GZIPInputStream(tmpIS);
+				}
+				isChilds.add(tmpIS);
+			}
+			is = new SequenceInputStream(isChilds.elements());		
+		}
+
+		
 		try {
 			brImpresssions = new BufferedReader(new FileReader(_groundTruthFilename));
 			return true;

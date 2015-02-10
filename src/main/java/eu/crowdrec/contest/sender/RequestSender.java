@@ -26,15 +26,20 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.FileWriter;
+import java.io.FilenameFilter;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
+import java.io.SequenceInputStream;
 import java.io.UnsupportedEncodingException;
 import java.net.HttpURLConnection;
 import java.net.MalformedURLException;
 import java.net.URL;
 import java.net.URLEncoder;
+import java.util.Arrays;
+import java.util.Comparator;
 import java.util.Date;
+import java.util.Vector;
 import java.util.zip.GZIPInputStream;
 
 import org.apache.commons.httpclient.HttpClient;
@@ -223,7 +228,10 @@ public class RequestSender {
 			postMethod.setRequestEntity(requestEntity);
 
 			int statusCode = httpClient.executeMethod(postMethod);
-			String response = postMethod.getResponseBodyAsString();
+			String response = 
+				statusCode == 200
+					? postMethod.getResponseBodyAsString()
+					: "statusCode:" + statusCode;
 
 			return response.trim();
 		} catch (IOException e) {
@@ -252,10 +260,6 @@ public class RequestSender {
 		
 		// handle the log file
 		// check type of file
-		boolean is_gzip = false;
-		if (inLogFileName.endsWith(".gz")) {
-			is_gzip = true;
-		}
 		
 		// try to read the defined logFile
 		BufferedReader br = null;
@@ -266,11 +270,48 @@ public class RequestSender {
 				bw = new BufferedWriter(new FileWriter(new File(outLogFile), false));
 			}
 			
-			InputStream is = new FileInputStream(inLogFileName);
-			// support gZip files
-			if (is_gzip) {
-				is = new GZIPInputStream(is);
+			// support a list of files in a directory
+			File inLogFile = new File(inLogFileName);
+			InputStream is;
+			if (inLogFile.isFile()) {
+				is = new FileInputStream(inLogFileName);
+				// support gZip files
+				if (inLogFile.getName().toLowerCase().endsWith(".gz")) {
+					is = new GZIPInputStream(is);
+				}
 			}
+			else {
+				// if the input is a directory, consider all files based on a pattern
+				File[] childs = inLogFile.listFiles(new FilenameFilter() {
+					
+					@Override
+					public boolean accept(File dir, String name) {
+						final String fileName = name.toLowerCase();
+						return fileName.endsWith("data.idomaar.txt.gz") || fileName.endsWith("data.idomaar.txt");
+					}
+				});
+				if (childs == null || childs.length == 0) {
+					throw new IOException("invalid inLogFileName or empty directory");
+				}
+				Arrays.sort(childs, new Comparator<File>() {
+
+					@Override
+					public int compare(File o1, File o2) {
+						return o1.getName().compareTo(o2.getName());
+					}
+				});
+				Vector<InputStream> isChilds = new Vector<InputStream>();
+				for (int i = 0; i< childs.length; i++) {
+					InputStream tmpIS = new FileInputStream(childs[i]);
+					// support gZip files
+					if (childs[i].getName().toLowerCase().endsWith(".gz")) {
+						tmpIS = new GZIPInputStream(tmpIS);
+					}
+					isChilds.add(tmpIS);
+				}
+				is = new SequenceInputStream(isChilds.elements());		
+			}
+			
 			
 			// read the log file line by line
 			br = new BufferedReader(new InputStreamReader(is));
@@ -298,6 +339,7 @@ public class RequestSender {
 						t.start();
 					} else {
 						// send parameters to http server and get response.
+						final long startTime = System.currentTimeMillis();
 						String result = 
 							HttpLib.HTTPCLIENT.equals(httpLib)
 							? excutePostWithHttpClient(line, serverURL)
@@ -321,9 +363,10 @@ public class RequestSender {
 								String itemId = data[2];
 								String domainId = data[3];
 								String timeStamp = data[4];
+								long responseTime = System.currentTimeMillis() - startTime;
 								synchronized (bw) {
 									try {
-										bw.write("prediction\t" + requestId + "\t" + timeStamp + "\t" + itemId+ "\t" + userId + "\t" + domainId + "\t" + result);
+										bw.write("prediction\t" + requestId + "\t" + timeStamp + "\t" + responseTime + "\t" + itemId+ "\t" + userId + "\t" + domainId + "\t" + result);
 										bw.newLine();
 									}catch (Exception e) {
 										e.printStackTrace();
@@ -350,6 +393,9 @@ public class RequestSender {
 			}
 			if (bw != null) {
 				try {
+					// wait for ensuring that all request are finished
+					// this simplifies the management of thread and worked fine for all test machines
+					Thread.sleep(5000);
 					bw.flush();
 				} catch (Exception e) {
 					logger.debug("close write-log file failed");
@@ -377,7 +423,7 @@ public class RequestSender {
 				Thread.sleep(5000);
 			} catch (Exception e) {
 			}
-			System.out.println("finished (thredPool=" + useThreadPool + "): " + (System.currentTimeMillis() - startTime) + " (Finished: " + new Date() + ")");
+			System.out.println("finished (threadPool=" + useThreadPool + "): " + (System.currentTimeMillis() - startTime) + " (Finished: " + new Date() + ")");
 		} else {
 			System.err.println("wrong number of parameters.");
 			System.err.println("usage: java RequestSender <hostName>:<port> <logfileName>");
@@ -419,6 +465,8 @@ public class RequestSender {
 		@Override
 		public void run() {
 			
+			final long startTime = System.currentTimeMillis();
+			
 			// select the lib and send the http request
 			String result = 
 				HttpLib.HTTPCLIENT.equals(httpLib)
@@ -444,9 +492,10 @@ public class RequestSender {
 					String itemId = data[2];
 					String domainId = data[3];
 					String timeStamp = data[4];
+					long responseTime = System.currentTimeMillis() - startTime;
 					synchronized (bw) {
 						try {
-							bw.write("prediction\t" + requestId + "\t" + timeStamp + "\t" + itemId+ "\t" + userId + "\t" + domainId + "\t" + result);
+							bw.write("prediction\t" + requestId + "\t" + timeStamp + "\t" + responseTime + "\t" + itemId+ "\t" + userId + "\t" + domainId + "\t" + result);
 							bw.newLine();
 						}catch (Exception e) {
 							logger.warn(e.toString(), e);

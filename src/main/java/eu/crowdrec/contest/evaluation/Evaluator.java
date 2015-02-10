@@ -9,6 +9,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
 
+import org.apache.commons.math.stat.descriptive.SummaryStatistics;
 import org.json.simple.JSONArray;
 import org.json.simple.JSONObject;
 import org.json.simple.JSONValue;
@@ -31,7 +32,18 @@ public class Evaluator {
 	/**
 	 * aggregate the evaluation results for different domains
 	 */
-	final static Map<Long, int[]> resultCount = new HashMap<Long, int[]>();
+	private final static Map<Long, int[]> resultCount = new HashMap<Long, int[]>();
+	
+	
+	/**
+	 * The responseTime statistic.
+	 */
+	private final static SummaryStatistics responseTimeStatistic = new SummaryStatistics();
+
+	/**
+	 * create a histogram for debugging (a detailed analysis)
+	 */
+	private final static int[] histogram = new int [500];
 	
 	/**
 	 * Run the evaluation process. Ensure that enough heap is available for caching.
@@ -39,15 +51,16 @@ public class Evaluator {
 	 *   considered in the evaluation.
 	 *     
 	 * @param args the files used in the evaluation.
+	 * @throws IOException indicates a problem while searching or opening the ground truth file(s)
 	 */
-	public static void main(String[] args) {
+	public static void main(String[] args) throws IOException {
 
 		// define default settings for simplified testing
 		String predictionFileName = "";
 		String groundTruthFileName = "";
 
 		// define the default window size
-		long windowSizeInMillis = 15L * 60L * 1000L;
+		long windowSizeInMillis = 5L * 60L * 1000L;
 		
 		// check the parameters
 		if (args.length < 0 || args.length > 3) {
@@ -94,15 +107,23 @@ public class Evaluator {
 					
 					long messageID = Long.parseLong(token[1]);
 					long timeStamp = Long.parseLong(token[2]);
-					//long itemID = Long.parseLong(token[3]);
+					long responseTime = Long.parseLong(token[3]);
+					responseTimeStatistic.addValue(responseTime);
+					int tmpResponseTime = (int) (responseTime/10);
+					if (tmpResponseTime >= histogram.length) {
+						tmpResponseTime = histogram.length-1;
+					}
+					histogram[tmpResponseTime]++;
+					//long itemID = Long.parseLong(token[4]);
+					
 					long userID = -1;
 					try {
-						userID = Long.parseLong(token[4]);
+						userID = Long.parseLong(token[5]);
 					} catch (Exception ignored) {
 					}
 					
-					long domainID = Long.parseLong(token[5]);
-					String recommendations = token[6];
+					long domainID = Long.parseLong(token[6]);
+					String recommendations = token[7];
 					final JSONObject jsonObj = (JSONObject) JSONValue.parse(recommendations);
 					
 					JSONObject recs = (JSONObject) jsonObj.get("recs");
@@ -166,6 +187,18 @@ public class Evaluator {
 			}
 		}
 		System.out.println("all" + DELIM + Arrays.toString(overall) + DELIM + NumberFormat.getInstance().format(1000*overall[0] / overall[1]) + " o/oo");
-
+		System.out.println(
+				"mean/min/max/n/stdDev" + DELIM + 
+				responseTimeStatistic.getMean() + DELIM + 
+				responseTimeStatistic.getMin() + DELIM + 
+				responseTimeStatistic.getMax() + DELIM + 
+				responseTimeStatistic.getStandardDeviation() + DELIM + 
+				responseTimeStatistic.getN());
+		
+		// print the histogram for the response time statistic
+//		System.out.println("'==Histogram==");
+//		for (int i = 0; i < histogram.length; i++) {
+//			System.out.println((i*10) + DELIM + histogram[i]);
+//		}
 	}
 }
