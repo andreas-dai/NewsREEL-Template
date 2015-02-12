@@ -126,36 +126,41 @@ public class Evaluator {
 					
 					boolean recommendationAvailable = token.length > 7;
 					if (recommendationAvailable) {
-						String recommendations = token[7];
-						final JSONObject jsonObj = (JSONObject) JSONValue.parse(recommendations);
-						
-						JSONObject recs = (JSONObject) jsonObj.get("recs");
-						JSONObject recsInts = (JSONObject) recs.get("ints");
-						JSONArray itemIds = (JSONArray) recsInts.get("3");
-						if (itemIds != null) {
-							for (int i = 0; i < itemIds.size() && i < MAX_NUMBER_OF_RECOMMENDATIONS; i++) {
-								Long itemID = Long.parseLong(itemIds.get(i) + "");
-								
-								// check the IDs
-								CacheEntry ce = new CacheEntry(userID, itemID, domainID, timeStamp);
-								boolean valid = lfc.checkPrediction(ce, blackListedItems);
-								
-								//System.out.println("checking:\t" + timeStamp + "\t" + userID + "\t" + domainID + "\t" + itemID + "\t:" + valid) ;
-	
-								int[] countEntry = resultCount.get(domainID);
-								if (countEntry == null) {
-									resultCount.put(domainID, new int[3]);
-									countEntry = resultCount.get(domainID);
-								}
-								if (valid) {
-									countEntry[0]++;
-								} else {
-									countEntry[1]++;
+						try {
+							String recommendations = token[7];
+							final JSONObject jsonObj = (JSONObject) JSONValue.parse(recommendations);
+							
+							JSONObject recs = (JSONObject) jsonObj.get("recs");
+							JSONObject recsInts = (JSONObject) recs.get("ints");
+							JSONArray itemIds = (JSONArray) recsInts.get("3");
+							if (itemIds != null) {
+								for (int i = 0; i < itemIds.size() && i < MAX_NUMBER_OF_RECOMMENDATIONS; i++) {
+									Long itemID = Long.parseLong(itemIds.get(i) + "");
+									
+									// check the IDs
+									CacheEntry ce = new CacheEntry(userID, itemID, domainID, timeStamp);
+									boolean valid = lfc.checkPrediction(ce, blackListedItems);
+									
+									//System.out.println("checking:\t" + timeStamp + "\t" + userID + "\t" + domainID + "\t" + itemID + "\t:" + valid) ;
+		
+									int[] countEntry = resultCount.get(domainID);
+									if (countEntry == null) {
+										resultCount.put(domainID, new int[3]);
+										countEntry = resultCount.get(domainID);
+									}
+									if (valid) {
+										countEntry[0]++;
+									} else {
+										countEntry[1]++;
+									}
 								}
 							}
+						} catch (Exception e) {
+							// we assume that no valid recommendation has been provided
+							recommendationAvailable = false;
 						}
 					} // end recommendation available
-					else {
+					if (!recommendationAvailable) {
 						//System.out.println("recommendation missing for domain " + domainID);
 						int[] countEntry = resultCount.get(domainID);
 						if (countEntry == null) {
