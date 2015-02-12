@@ -203,19 +203,37 @@ public class RequestSender {
 		// split the logLine into several token
 		String[] token = logline.split("\t");
 
-		String type = token[0];
-		String property = token[3];
-		String entity = token[4];
-		
-		// encode the content as URL parameters.
+		// define the URL parameter
 		String urlParameters = "";
-		try {
-			urlParameters = String.format("type=%s&properties=%s&entities=%s",
-					URLEncoder.encode(type, "UTF-8"),
-					URLEncoder.encode(property, "UTF-8"),
-					URLEncoder.encode(entity, "UTF-8"));
-		} catch (UnsupportedEncodingException e1) {
-			logger.warn(e1.toString());
+		
+		boolean oldMethod = token.length < 4;
+		if (oldMethod) {
+			try {
+				String type = logline.contains("\"event_type\": \"recommendation_request\"")
+					? "recommendation_request"
+					: "event_notification";
+				String newLine = logline.substring(0, logline.length()-1) + ", \"limit\":6, \"type\":\"impression\"}";
+				urlParameters = String.format("type=%s&body=%s",
+						URLEncoder.encode(type, "UTF-8"),
+						URLEncoder.encode(newLine, "UTF-8"));
+
+			} catch (UnsupportedEncodingException e1) {
+				logger.warn(e1.toString());
+			}			
+		} else {
+			String type = token[0];
+			String property = token[3];
+			String entity = token[4];
+			
+			// encode the content as URL parameters.
+			try {
+				urlParameters = String.format("type=%s&properties=%s&entities=%s",
+						URLEncoder.encode(type, "UTF-8"),
+						URLEncoder.encode(property, "UTF-8"),
+						URLEncoder.encode(entity, "UTF-8"));
+			} catch (UnsupportedEncodingException e1) {
+				logger.warn(e1.toString());
+			}
 		}
 
 		PostMethod postMethod = null;

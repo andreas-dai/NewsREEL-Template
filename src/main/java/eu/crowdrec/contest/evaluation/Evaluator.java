@@ -123,33 +123,46 @@ public class Evaluator {
 					}
 					
 					long domainID = Long.parseLong(token[6]);
-					String recommendations = token[7];
-					final JSONObject jsonObj = (JSONObject) JSONValue.parse(recommendations);
 					
-					JSONObject recs = (JSONObject) jsonObj.get("recs");
-					JSONObject recsInts = (JSONObject) recs.get("ints");
-					JSONArray itemIds = (JSONArray) recsInts.get("3");
-					if (itemIds != null) {
-						for (int i = 0; i < itemIds.size() && i < MAX_NUMBER_OF_RECOMMENDATIONS; i++) {
-							Long itemID = Long.parseLong(itemIds.get(i) + "");
-							
-							// check the IDs
-							CacheEntry ce = new CacheEntry(userID, itemID, domainID, timeStamp);
-							boolean valid = lfc.checkPrediction(ce, blackListedItems);
-							
-							//System.out.println("checking:\t" + timeStamp + "\t" + userID + "\t" + domainID + "\t" + itemID + "\t:" + valid) ;
-
-							int[] countEntry = resultCount.get(domainID);
-							if (countEntry == null) {
-								resultCount.put(domainID, new int[2]);
-								countEntry = resultCount.get(domainID);
-							}
-							if (valid) {
-								countEntry[0]++;
-							} else {
-								countEntry[1]++;
+					boolean recommendationAvailable = token.length > 7;
+					if (recommendationAvailable) {
+						String recommendations = token[7];
+						final JSONObject jsonObj = (JSONObject) JSONValue.parse(recommendations);
+						
+						JSONObject recs = (JSONObject) jsonObj.get("recs");
+						JSONObject recsInts = (JSONObject) recs.get("ints");
+						JSONArray itemIds = (JSONArray) recsInts.get("3");
+						if (itemIds != null) {
+							for (int i = 0; i < itemIds.size() && i < MAX_NUMBER_OF_RECOMMENDATIONS; i++) {
+								Long itemID = Long.parseLong(itemIds.get(i) + "");
+								
+								// check the IDs
+								CacheEntry ce = new CacheEntry(userID, itemID, domainID, timeStamp);
+								boolean valid = lfc.checkPrediction(ce, blackListedItems);
+								
+								//System.out.println("checking:\t" + timeStamp + "\t" + userID + "\t" + domainID + "\t" + itemID + "\t:" + valid) ;
+	
+								int[] countEntry = resultCount.get(domainID);
+								if (countEntry == null) {
+									resultCount.put(domainID, new int[3]);
+									countEntry = resultCount.get(domainID);
+								}
+								if (valid) {
+									countEntry[0]++;
+								} else {
+									countEntry[1]++;
+								}
 							}
 						}
+					} // end recommendation available
+					else {
+						//System.out.println("recommendation missing for domain " + domainID);
+						int[] countEntry = resultCount.get(domainID);
+						if (countEntry == null) {
+							resultCount.put(domainID, new int[3]);
+							countEntry = resultCount.get(domainID);
+						}
+						countEntry[2]++;
 					}
 
 				} catch (Exception e) {
@@ -176,19 +189,19 @@ public class Evaluator {
 		}
 		
 		// printout the results
-		int[] overall = new int[2];
+		int[] overall = new int[3];
 		final String DELIM = "\t"; 
 		System.out.println("\nEvaluation results\n==================");
 		for (Map.Entry<Long, int[]> entry: resultCount.entrySet()) {
 			int[] values = entry.getValue();
-			System.out.println(entry.getKey() + DELIM + Arrays.toString(values) + DELIM + NumberFormat.getInstance().format(1000*values[0] / values[1]) + " o/oo");
+			System.out.println(entry.getKey() + DELIM + Arrays.toString(values) + DELIM + NumberFormat.getInstance().format(1000*values[0] / (values[0]+values[1]+values[2])) + " o/oo");
 			for (int i = 0; i < values.length; i++) {
 				overall[i] += values[i];
 			}
 		}
-		System.out.println("all" + DELIM + Arrays.toString(overall) + DELIM + NumberFormat.getInstance().format(1000*overall[0] / overall[1]) + " o/oo");
+		System.out.println("all" + DELIM + Arrays.toString(overall) + DELIM + NumberFormat.getInstance().format(1000*overall[0] / (overall[0]+overall[1]+overall[2])) + " o/oo");
 		System.out.println(
-				"mean/min/max/n/stdDev" + DELIM + 
+				"mean/min/max/stdDev/n" + DELIM + 
 				responseTimeStatistic.getMean() + DELIM + 
 				responseTimeStatistic.getMin() + DELIM + 
 				responseTimeStatistic.getMax() + DELIM + 

@@ -43,6 +43,7 @@ public class Impression {
 	public static final Integer NUMBER_OF_REQUESTED_RESULTS_ID = 8;
 	public static final Integer OPERATING_SYSTEM_ID = 15;
 	public static final Integer BROWSER_ID = 16;
+	public static final Integer ORGINAL_EVENT_TYPE = 20;
 	
 	///////////////////////////////////////////////////////////////////////////////////////////
     // settings and member variables
@@ -262,6 +263,13 @@ public class Impression {
 		
 		// parse the line
 		String[] token = line.split("\t");
+		
+		// if the line contains only one token, handle the line as plan json
+		if (token.length < 4) {
+			return createImpressionFromJSON(line);
+		}
+		
+		// extract the relevant information
 		String messageType = token[0];
 		long messageID = Long.parseLong(token[1]);
 		long timeStamp = Long.parseLong(token[2]);
@@ -282,6 +290,50 @@ public class Impression {
 		}
 		final long domainID = (Long) jOE.get("domainID");
 
+		final JSONObject jOET3 = (JSONObject) JSONValue.parse(token[3]);
+		final String originalEventType = (String) jOET3.get("event_type");
+		
+		// create the instance
+		Impression result = new Impression();
+		result.valuesByID.put(USER_ID, userID);
+		result.valuesByID.put(ITEM_ID, itemID);
+		result.valuesByID.put(DOMAIN_ID, domainID);
+		result.valuesByID.put(TIMESTAMP_ID, timeStamp);
+		result.valuesByID.put(ORGINAL_EVENT_TYPE, originalEventType);
+
+		return result;
+	}
+
+	/**
+	 * Create an impression object from a line of JSON code.
+	 * @param line a line containing a JSON object
+	 * @return an impression object
+	 * @throws ParseException
+	 * @throws NumberFormatException
+	 */
+	public static Impression createImpressionFromJSON(final String line) throws ParseException, NumberFormatException {
+		
+		// parse the line
+		final JSONObject jOE = (JSONObject) JSONValue.parse(line);
+		final JSONObject jOContext = (JSONObject) jOE.get("context");
+		final JSONObject jOContextSimple = (JSONObject) jOContext.get("simple");
+
+		long userID;
+		try {
+			userID =  (Long) jOContextSimple.get("57");
+		} catch (Exception e) {
+			userID = 0;
+		}
+		
+		long itemID;
+		try {
+			itemID = (Long) jOContextSimple.get("25");
+		} catch (Exception e) {
+			itemID = 0;
+		}
+		final long domainID = (Long) jOContextSimple.get("27");
+		final long timeStamp = (Long) jOE.get("timestamp");
+		final String originalEventType = (String) jOE.get("event_type");
 
 		
 		// create the instance
@@ -290,9 +342,9 @@ public class Impression {
 		result.valuesByID.put(ITEM_ID, itemID);
 		result.valuesByID.put(DOMAIN_ID, domainID);
 		result.valuesByID.put(TIMESTAMP_ID, timeStamp);
+		result.valuesByID.put(ORGINAL_EVENT_TYPE, originalEventType);
 
 		return result;
 	}
-
 
 }
