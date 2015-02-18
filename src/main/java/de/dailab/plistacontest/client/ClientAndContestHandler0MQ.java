@@ -141,25 +141,28 @@ public class ClientAndContestHandler0MQ {
 
 			// parse the type of the event
 			final RecommenderItem item = RecommenderItem.parseEventNotification(jOP.toJSONString());
-			final String eventNotificationType = messageType; 
+			final String eventNotificationType = item.getNotificationType(); 
 
+			
+			// new items shall be added to the list of items
+			if (item.getItemID() != null) {
+				recommenderItemTable.handleItemUpdate(item);
+			}
+			response = "handle impression eventNotification successful";
+			
 			// impression refers to articles read by the user
-			if ("impression".equalsIgnoreCase(eventNotificationType)) {
+			if ("recommendation_request".equalsIgnoreCase(eventNotificationType)) {
 
 				// we mark this information in the article table
 				if (item.getItemID() != null) {
-					// new items shall be added to the list of items
-					recommenderItemTable.handleItemUpdate(item);
-					item.setNumberOfRequestedResults(6);
 
-					response = "handle impression eventNotification successful";
+					item.setNumberOfRequestedResults(6);
+					//List<Long> suggestedItemIDs = item.getListOfDisplayedRecs();
+					List<Long> suggestedItemIDs = recommenderItemTable.getLastItems(item);
+					response = "{" + "\"recs\": {" + "\"ints\": {" + "\"3\": " + suggestedItemIDs + "}" + "}}";
 					
-					boolean recommendationExpected = true;
-					if (recommendationExpected) {
-						List<Long> suggestedItemIDs = recommenderItemTable.getLastItems(item);
-						response = "{" + "\"recs\": {" + "\"ints\": {" + "\"3\": " + suggestedItemIDs + "}" + "}}";
-					}
-					
+				} else {
+					System.err.println("invalid itemID - requests are only valid for 'normal' articles");
 				}
 				// click refers to recommendations clicked by the user
 			} else if ("click".equalsIgnoreCase(eventNotificationType)) {

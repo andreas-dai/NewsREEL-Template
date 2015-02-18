@@ -204,8 +204,7 @@ public class RecommenderItem {
 	 */
 	public void setNumberOfRequestedResults(
 			final Integer numberOfRequestedResults) {
-		valuesByID
-				.put(NUMBER_OF_REQUESTED_RESULTS_ID, numberOfRequestedResults);
+		valuesByID.put(NUMBER_OF_REQUESTED_RESULTS_ID, numberOfRequestedResults);
 	}
 
 	/**
@@ -335,16 +334,23 @@ public class RecommenderItem {
 			String text = jsonObj.get("text") + "";
 			String flag = jsonObj.get("flag") + "";
 			boolean recommendable = ("0".equals(flag));
-
+			Long created = System.currentTimeMillis();
+			
 			// parse date, now is default
 			String createdAt = jsonObj.get("created_at") + "";
-			Long created = System.currentTimeMillis();
-			try {
-				SimpleDateFormat sdf;
-				sdf = RecommenderItem.sdf.get();
-				created = sdf.parse(createdAt).getTime();
-			} catch (ParseException e) {
-				e.printStackTrace();
+			
+			// maybe the field is called timeStamp instead of created_at
+			if ("null".equals(createdAt)) {
+				created = (Long) jsonObj.get("timestamp");
+			} else {
+				// parse the date string and derive the long date number
+				try {
+					SimpleDateFormat sdf;
+					sdf = RecommenderItem.sdf.get();
+					created = sdf.parse(createdAt).getTime();
+				} catch (ParseException e) {
+					e.printStackTrace();
+				}
 			}
 			RecommenderItem result = new RecommenderItem(null /* userID */,
 					Long.valueOf(itemID), Long.valueOf(domainID), created);
@@ -483,6 +489,17 @@ public class RecommenderItem {
 			String notificationType = null;
 			try {
 				notificationType = jsonObj.get("type") + "";
+			} catch (Exception e) {
+				e.printStackTrace();
+			}
+			
+			// event_type due to the idomaar data format
+			String eventType = null;
+			try {
+				eventType = jsonObj.get("event_type") + "";
+				if (!"null".equals(eventType)) {
+					notificationType = eventType;
+				}
 			} catch (Exception e) {
 				e.printStackTrace();
 			}
