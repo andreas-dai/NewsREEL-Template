@@ -22,12 +22,15 @@ public class Evaluator {
 	/**
 	 * prevent invalid answers, recommending just everything
 	 */
-	private static final int MAX_NUMBER_OF_RECOMMENDATIONS = 3;
+	private static final int MAX_NUMBER_OF_RECOMMENDATIONS = 6;
 	
 	/**
 	 * the set of forbidden items
 	 */
 	private static final HashSet<Long> blackListedItems = new HashSet<Long>();
+	static {
+		blackListedItems.add(0L);
+	}
 	
 	/**
 	 * aggregate the evaluation results for different domains
@@ -134,8 +137,11 @@ public class Evaluator {
 							JSONObject recsInts = (JSONObject) recs.get("ints");
 							JSONArray itemIds = (JSONArray) recsInts.get("3");
 							if (itemIds != null) {
-								for (int i = 0; i < itemIds.size() && i < MAX_NUMBER_OF_RECOMMENDATIONS; i++) {
-									Long itemID = Long.parseLong(itemIds.get(i) + "");
+								for (int i = 0;  i < MAX_NUMBER_OF_RECOMMENDATIONS; i++) {
+									Long itemID = 
+										i < itemIds.size() 
+										? Long.parseLong(itemIds.get(i) + "")
+										: 0L;
 									
 									// check the IDs
 									CacheEntry ce = new CacheEntry(userID, itemID, domainID, timeStamp);
@@ -167,6 +173,7 @@ public class Evaluator {
 							resultCount.put(domainID, new int[3]);
 							countEntry = resultCount.get(domainID);
 						}
+						// we count the number of invalid responses
 						countEntry[2]++;
 					}
 
@@ -199,12 +206,12 @@ public class Evaluator {
 		System.out.println("\nEvaluation results\n==================");
 		for (Map.Entry<Long, int[]> entry: resultCount.entrySet()) {
 			int[] values = entry.getValue();
-			System.out.println(entry.getKey() + DELIM + Arrays.toString(values) + DELIM + NumberFormat.getInstance().format(1000*values[0] / (values[0]+values[1]+values[2])) + " o/oo");
+			System.out.println(entry.getKey() + DELIM + Arrays.toString(values) + DELIM + NumberFormat.getInstance().format(1000*values[0] / (values[0]+values[1]+MAX_NUMBER_OF_RECOMMENDATIONS*values[2])) + " o/oo");
 			for (int i = 0; i < values.length; i++) {
 				overall[i] += values[i];
 			}
 		}
-		System.out.println("all" + DELIM + Arrays.toString(overall) + DELIM + NumberFormat.getInstance().format(1000*overall[0] / (overall[0]+overall[1]+overall[2])) + " o/oo");
+		System.out.println("all" + DELIM + Arrays.toString(overall) + DELIM + NumberFormat.getInstance().format(1000*overall[0] / (overall[0]+overall[1]+MAX_NUMBER_OF_RECOMMENDATIONS*overall[2])) + " o/oo");
 		System.out.println(
 				"mean/min/max/stdDev/n" + DELIM + 
 				responseTimeStatistic.getMean() + DELIM + 
