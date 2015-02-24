@@ -285,7 +285,6 @@ public class LinkedFileCacheDuplicateSupport {
 		final Long itemID;
 		final Long domainID;
 		final long timeStamp;
-		boolean counted = false;
 		
 		public CacheEntry(final Long userID, final Long itemID, final Long domainID, final long timeStamp) {
 			
@@ -322,13 +321,6 @@ public class LinkedFileCacheDuplicateSupport {
 		 */
 		public final long getTimeStamp() {
 			return timeStamp;
-		}
-
-		/**
-		 * @return the counted
-		 */
-		public final boolean isCounted() {
-			return counted;
 		}
 
 		/**
