@@ -1,13 +1,17 @@
 package eu.crowdrec.contest.evaluation;
 
 import java.io.BufferedReader;
+import java.io.BufferedWriter;
 import java.io.FileReader;
+import java.io.FileWriter;
 import java.io.IOException;
 import java.text.NumberFormat;
+import java.text.SimpleDateFormat;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
+import java.util.TreeMap;
 
 import org.apache.commons.math.stat.descriptive.SummaryStatistics;
 import org.json.simple.JSONArray;
@@ -18,6 +22,24 @@ import eu.crowdrec.contest.evaluation.LinkedFileCacheDuplicateSupport.CacheEntry
 
 
 public class Evaluator {
+	
+	////////////////////////////////////////////////////////////////////////////
+	///// adapt the following line for enabling a detailed evaluation /////////
+	////////////////////////////////////////////////////////////////////////////
+	
+	/**
+	 * the fileName for creating a detailed evaluation analysis, set to null for disabling this feature
+	 */
+	public static final String fileNameDetailedEvaluation = null;
+	
+	/**
+	 * should the response time histogram be printed? - simply set to true if interested in the distribution
+	 */
+	public final static boolean printResponseTimeHistogram = false;
+	
+	////////////////////////////////////////////////////////////////////////////
+	////////////////////////////////////////////////////////////////////////////
+	////////////////////////////////////////////////////////////////////////////
 	
 	/**
 	 * prevent invalid answers, recommending just everything
@@ -37,17 +59,107 @@ public class Evaluator {
 	 */
 	private final static Map<Long, int[]> resultCount = new HashMap<Long, int[]>();
 	
+	/**
+	 * aggregate the evaluation results for different domains  based on a context specific key
+	 */
+	private final static Map<String, Map<Long, int[]>> resultCountByContextKey = new TreeMap<String, Map<Long, int[]>>();
 	
+	/**
+	 * the timeStamp to contextKey converter (only relevant, if the detailed evaluation is enabled
+	 */
+	//private final static SimpleDateFormat sdf01 = new SimpleDateFormat("yy'\t'MM'\t'dd'\t'ww'\t'HH'\t'mm'\t'EE");
+	//private final static SimpleDateFormat sdf01 = new SimpleDateFormat("yy'\t'MM'\t'dd'\t'ww'\t'HH'\tmm\t'EE");
+	private final static SimpleDateFormat sdf01 = new SimpleDateFormat("yy'\t'MM'\t'dd'\t'ww'\t'HH'\tmm\t'EE'\t'yyy'-'MM'-'dd'-'HH");
+
+
 	/**
 	 * The responseTime statistic.
 	 */
 	private final static SummaryStatistics responseTimeStatistic = new SummaryStatistics();
 
 	/**
-	 * create a histogram for debugging (a detailed analysis)
+	 * create a histogram for debugging (a detailed response time analysis)
 	 */
 	private final static int[] histogram = new int [500];
 	
+	/**
+	 * compute a context key based on a timeStamp
+	 */
+	private static String computeContextKey(long _timeStamp) {
+		String tmp = sdf01.format(_timeStamp);
+		long q = _timeStamp / 60000L;
+		q %= 60L;
+		q /= 15L;
+		q = 0;
+		return tmp + "-" + q;
+	}
+	
+	/**
+	 * Write a detailed analysis based on the collected context keys to a file.
+	 * @param _fileName
+	 */
+	private static void writeDetailedStatistic(final String _fileName) {
+		BufferedWriter bw = null;
+		final long[] keys = {596L, 694L, 1677L};
+		try {
+			bw = new BufferedWriter(new FileWriter(_fileName));
+			bw.write("year\tmonth\tday\tweek\thour\tminute\tweekday\tquarter");
+			for (long domainID : keys) {
+				bw.write("\tA" + domainID );
+				bw.write("\tB" + domainID );
+				bw.write("\tC" + domainID );
+				bw.write("\tD" + domainID );
+				bw.write("\tS" + domainID );
+			}
+			bw.newLine();
+			
+			for (Map.Entry<String, Map<Long, int[]>> entry : resultCountByContextKey.entrySet()) {
+				bw.write(entry.getKey() + "\t");
+				for (long domainID : keys) {
+					int[] values = entry.getValue().get(domainID);
+					if (values == null) {
+						bw.write("0\t0\t0\t0\t");
+					} else {
+						bw.write(values[0] + "\t" + values[1] + "\t" + values[2] + "\t" + ((double)values[0] / (values[0] + values[1] + 6 * values[2])) + "\t" + (values[0] + values[1] + 6 * values[2]) + "\t");
+					}
+				}
+				bw.newLine();
+			}
+			
+		} catch (Exception e) {
+			e.printStackTrace();
+		} finally {
+			if (bw != null) {
+				try {
+					bw.close();
+				} catch (Exception e) {
+					e.printStackTrace();
+				}
+			}
+		}
+	}
+
+	/**
+	 * Return the log entry for the requested context key an the domain.
+	 * @param _contextKey typically a timeStamp
+	 * @param _domainID the domainID
+	 * @return int-array a log entry 
+	 */
+	private static int[] getResultCountEntry(final long _contextKey, final Long _domainID) {
+		String contextKey = computeContextKey(_contextKey);
+		Map<Long, int[]> countEntryForContext = resultCountByContextKey.get(contextKey);
+		if (countEntryForContext == null) {
+			resultCountByContextKey.put(contextKey, new HashMap<Long, int[]>());
+			countEntryForContext = resultCountByContextKey.get(contextKey);
+		}
+		int[] countEntryForDomainAndContext = countEntryForContext.get(_domainID);
+		if (countEntryForDomainAndContext == null) {
+			countEntryForContext.put(_domainID, new int[3]);
+			countEntryForDomainAndContext = countEntryForContext.get(_domainID);
+		}
+		return countEntryForDomainAndContext;
+	}
+  
 	/**
 	 * Run the evaluation process. Ensure that enough heap is available for caching.
 	 * The amount of required memory is linear in the number of cached lines / the size of the time window
@@ -57,7 +169,7 @@ public class Evaluator {
 	 * @throws IOException indicates a problem while searching or opening the ground truth file(s)
 	 */
 	public static void main(String[] args) throws IOException {
-
+		
 		// define default settings for simplified testing
 		String predictionFileName = "";
 		String groundTruthFileName = "";
@@ -154,10 +266,14 @@ public class Evaluator {
 										resultCount.put(domainID, new int[3]);
 										countEntry = resultCount.get(domainID);
 									}
+
+									int[] countEntryForDomainAndContext = getResultCountEntry(timeStamp, domainID);
 									if (valid) {
 										countEntry[0]++;
+										countEntryForDomainAndContext[0]++;
 									} else {
 										countEntry[1]++;
+										countEntryForDomainAndContext[1]++;
 									}
 								}
 							}
@@ -175,6 +291,9 @@ public class Evaluator {
 						}
 						// we count the number of invalid responses
 						countEntry[2]++;
+						
+						int[] countEntryForDomainAndContext = getResultCountEntry(timeStamp, domainID);
+						countEntryForDomainAndContext[2]++;
 					}
 
 				} catch (Exception e) {
@@ -220,10 +339,17 @@ public class Evaluator {
 				responseTimeStatistic.getStandardDeviation() + DELIM + 
 				responseTimeStatistic.getN());
 		
+		// write a context-key specific evaluation file
+		if (fileNameDetailedEvaluation != null) {
+			writeDetailedStatistic(fileNameDetailedEvaluation);
+		}
+		
 		// print the histogram for the response time statistic
-//		System.out.println("'==Histogram==");
-//		for (int i = 0; i < histogram.length; i++) {
-//			System.out.println((i*10) + DELIM + histogram[i]);
-//		}
+		if (printResponseTimeHistogram) {
+			System.out.println("'==Histogram==");
+			for (int i = 0; i < histogram.length; i++) {
+				System.out.println((i*10) + DELIM + histogram[i]);
+			}
+		}
 	}
 }
