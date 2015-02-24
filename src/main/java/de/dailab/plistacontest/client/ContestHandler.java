@@ -185,7 +185,10 @@ public class ContestHandler extends AbstractHandler {
 
 					response = "handle impression eventNotification successful";
 					
-					boolean recommendationExpected = true;
+					boolean recommendationExpected = false;
+					if (properties.contains("\"event_type\": \"recommendation_request\"")) {
+						recommendationExpected = true;
+					}
 					if (recommendationExpected) {
 						List<Long> suggestedItemIDs = recommenderItemTable.getLastItems(item);
 						response = "{" + "\"recs\": {" + "\"ints\": {" + "\"3\": " + suggestedItemIDs + "}" + "}}";
@@ -263,18 +266,15 @@ public class ContestHandler extends AbstractHandler {
 		}
 
 		else if ("recommendation_request".equalsIgnoreCase(messageType)) {
-			final RecommenderItem recommenderItem = RecommenderItem
-					.parseItemUpdate(_jsonMessageBody);
+			final RecommenderItem recommenderItem = RecommenderItem.parseItemUpdate(_jsonMessageBody);
 
 			// we handle a recommendation request
 			try {
 				// parse the new recommender request
-				RecommenderItem currentRequest = RecommenderItem
-						.parseRecommendationRequest(_jsonMessageBody);
+				RecommenderItem currentRequest = RecommenderItem.parseRecommendationRequest(_jsonMessageBody);
 
 				// gather the items to be recommended
-				List<Long> resultList = recommenderItemTable
-						.getLastItems(currentRequest);
+				List<Long> resultList = recommenderItemTable.getLastItems(currentRequest);
 				if (resultList == null) {
 					response = "[]";
 					System.out.println("invalid resultList");
@@ -290,14 +290,12 @@ public class ContestHandler extends AbstractHandler {
 		} else if ("event_notification".equalsIgnoreCase(messageType)) {
 
 			// parse the type of the event
-			final RecommenderItem item = RecommenderItem
-					.parseEventNotification(_jsonMessageBody);
+			final RecommenderItem item = RecommenderItem.parseEventNotification(_jsonMessageBody);
 			final String eventNotificationType = item.getNotificationType();
 
 			// impression refers to articles read by the user
 			if ("impression".equalsIgnoreCase(eventNotificationType)
-					|| "impression_empty"
-							.equalsIgnoreCase(eventNotificationType)) {
+					|| "impression_empty".equalsIgnoreCase(eventNotificationType)) {
 
 				// we mark this information in the article table
 				if (item.getItemID() != null) {
@@ -312,8 +310,7 @@ public class ContestHandler extends AbstractHandler {
 				response = "handle click eventNotification successful";
 
 			} else {
-				System.out.println("unknown event-type: "
-						+ eventNotificationType + " (message ignored)");
+				System.out.println("unknown event-type: " + eventNotificationType + " (message ignored)");
 			}
 
 		} else if ("error_notification".equalsIgnoreCase(messageType)) {
