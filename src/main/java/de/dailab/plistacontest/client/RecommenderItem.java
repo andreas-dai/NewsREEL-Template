@@ -330,14 +330,17 @@ public class RecommenderItem {
 					.parse(_jsonMessageBody);
 
 			String itemID = jsonObj.get("id") + "";
+			if ("null".equals(itemID)) {
+				itemID = "0";
+			}
 			String domainID = jsonObj.get("domainid") + "";
 			String text = jsonObj.get("text") + "";
 			String flag = jsonObj.get("flag") + "";
 			boolean recommendable = ("0".equals(flag));
-			Long created = System.currentTimeMillis();
 			
 			// parse date, now is default
 			String createdAt = jsonObj.get("created_at") + "";
+			Long created = System.currentTimeMillis();
 			
 			// maybe the field is called timeStamp instead of created_at
 			if ("null".equals(createdAt)) {
@@ -352,8 +355,7 @@ public class RecommenderItem {
 					e.printStackTrace();
 				}
 			}
-			RecommenderItem result = new RecommenderItem(null /* userID */,
-					Long.valueOf(itemID), Long.valueOf(domainID), created);
+			RecommenderItem result = new RecommenderItem(null /* userID */,	Long.valueOf(itemID), Long.valueOf(domainID), created);
 			result.setText(text);
 			result.setRecommendable(recommendable);
 			return result;
@@ -417,7 +419,18 @@ public class RecommenderItem {
 				}
 			}
 			
-			long timeStamp = System.currentTimeMillis();
+			long timeStamp = 0;
+			try {
+				timeStamp = (Long) jsonObj.get("created_at") + 0L;
+			} catch (Exception ignored) {
+				timeStamp = (Long) jsonObj.get("timestamp");
+			}
+			
+			try {
+				userID = Long.valueOf(jsonObjectContextSimple.get("userId").toString());
+			} catch (Exception e) {
+				System.err.println("[INFO] no userID found in " + _jsonMessageBody);
+			}
 
 			Long limit = 0L;
 			try {
@@ -522,9 +535,16 @@ public class RecommenderItem {
 				e.printStackTrace();
 				System.err.println("invalid jsonObject: " + jsonObj);
 			}
+			
+			long timeStamp = 0;
+			try {
+				timeStamp = (Long) jsonObj.get("created_at") + 0L;
+			} catch (Exception ignored) {
+				timeStamp = (Long) jsonObj.get("timestamp");
+			}
 
 			// create the result and return
-			RecommenderItem result = new RecommenderItem(userID, itemID, domainID, System.currentTimeMillis());
+			RecommenderItem result = new RecommenderItem(userID, itemID, domainID, timeStamp);
 			result.setNotificationType(notificationType);
 			result.setListOfDisplayedRecs(listOfDisplayedRecs);
 
