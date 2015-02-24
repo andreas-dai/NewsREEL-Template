@@ -305,7 +305,7 @@ public class RequestSender {
 					@Override
 					public boolean accept(File dir, String name) {
 						final String fileName = name.toLowerCase();
-						return fileName.endsWith("data.idomaar.txt.gz") || fileName.endsWith("data.idomaar.txt");
+						return fileName.endsWith("data.idomaar.txt.gz") || fileName.endsWith("data.idomaar.txt") || fileName.endsWith(".data.gz");
 					}
 				});
 				if (childs == null || childs.length == 0) {
