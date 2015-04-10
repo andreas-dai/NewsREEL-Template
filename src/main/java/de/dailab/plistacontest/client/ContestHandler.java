@@ -168,14 +168,14 @@ public class ContestHandler extends AbstractHandler {
 		// define a response object
 		String response = null;
 
-		if ("impression".equalsIgnoreCase(messageType)) {
+		if ("impression".equalsIgnoreCase(messageType) || "recommendation".equalsIgnoreCase(messageType)) {
 
 			// parse the type of the event
 			final RecommenderItem item = RecommenderItem.parseEventNotification(jOP.toJSONString());
 			final String eventNotificationType = messageType; 
 
 			// impression refers to articles read by the user
-			if ("impression".equalsIgnoreCase(eventNotificationType)) {
+			if ("impression".equalsIgnoreCase(eventNotificationType) || "recommendation".equalsIgnoreCase(eventNotificationType)) {
 
 				// we mark this information in the article table
 				if (item.getItemID() != null) {
