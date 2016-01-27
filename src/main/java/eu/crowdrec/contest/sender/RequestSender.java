@@ -95,7 +95,13 @@ public class RequestSender {
 	 * the default logger
 	 */
 	private static final Logger logger = LoggerFactory.getLogger(RequestSender.class);
-	
+
+	/**
+	 * count the number of lines
+	 */
+	private static volatile long numberOfInputLines = 0L;
+	private static volatile long numberOfOutputLines = 0L;
+  	
 	/**
 	 * Send a line from a logFile to an HTTP server (single-threaded).
 	 * 
@@ -340,6 +346,7 @@ public class RequestSender {
 					if (line.startsWith("null") || line.startsWith("#")) {
 						continue;
 					}
+          numberOfInputLines++;
 					
 					if (useThreadPool) {
 						RequestSenderThread t = new RequestSenderThread(line, serverURL, bw);
@@ -372,6 +379,7 @@ public class RequestSender {
 							if (logger.isInfoEnabled()) {
 								logger.info("serverResponse: " + result);
 							}
+              numberOfOutputLines++;
 							
 							// if the output file is not null, write the output in a synchronized way
 							if (bw != null) {
@@ -437,11 +445,17 @@ public class RequestSender {
 			String args2 = args.length == 3 ? args[2] : null;
 			long startTime = System.currentTimeMillis();
 			sender(args[1], args2, args[0]);
+      long endTime = System.currentTimeMillis();
+      
+			System.out.println("finished (threadPool=" + useThreadPool + "): " + (endTime - startTime) + " (Finished: " + new Date() + ")");
+			System.out.println("throughput - messages per second: " + (1000L * numberOfInputLines / (endTime - startTime)));
+			System.out.println("throughput - requests per second: " + (1000L * numberOfOutputLines / (endTime - startTime)));
+
 			try {
 				Thread.sleep(5000);
 			} catch (Exception e) {
 			}
-			System.out.println("finished (threadPool=" + useThreadPool + "): " + (System.currentTimeMillis() - startTime) + " (Finished: " + new Date() + ")");
+
 		} else {
 			System.err.println("wrong number of parameters.");
 			System.err.println("usage: java RequestSender <hostName>:<port> <logfileName>");
@@ -501,6 +515,7 @@ public class RequestSender {
 				if (logger.isInfoEnabled()) {
 					logger.info("serverResponse: " + result);
 				}
+        numberOfOutputLines++;
 				
 				// if the output file is not null, write the output in a synchronized way
 				if (bw != null) {
