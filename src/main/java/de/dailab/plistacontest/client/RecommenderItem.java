@@ -423,7 +423,7 @@ public class RecommenderItem {
 			try {
 				timeStamp = (Long) jsonObj.get("created_at") + 0L;
 			} catch (Exception ignored) {
-				timeStamp = (Long) jsonObj.get("timestamp");
+				//timeStamp = (Long) jsonObj.get("timestamp");
 			}
 			
 			try {
