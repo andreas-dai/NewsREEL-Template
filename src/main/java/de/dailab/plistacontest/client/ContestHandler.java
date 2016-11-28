@@ -266,7 +266,6 @@ public class ContestHandler extends AbstractHandler {
 		}
 
 		else if ("recommendation_request".equalsIgnoreCase(messageType)) {
-			final RecommenderItem recommenderItem = RecommenderItem.parseItemUpdate(_jsonMessageBody);
 
 			// we handle a recommendation request
 			try {
