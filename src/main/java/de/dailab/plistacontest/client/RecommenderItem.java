@@ -426,11 +426,6 @@ public class RecommenderItem {
 				//timeStamp = (Long) jsonObj.get("timestamp");
 			}
 			
-			try {
-				userID = Long.valueOf(jsonObjectContextSimple.get("userId").toString());
-			} catch (Exception e) {
-				System.err.println("[INFO] no userID found in " + _jsonMessageBody);
-			}
 
 			Long limit = 0L;
 			try {
