@@ -401,7 +401,7 @@ public class RequestSenderORP {
 						}
 						requestId = timeStampAsLong + "0" + ((resultLineCount++) %100); 
 						try {
-							bw.write("prediction\t" + requestId + "\t" + timeStampAsLong + "\t" + responseTime + "\t" + itemId+ "\t" + userId + "\t" + domainId + "\t" + result + "\t" + data[5]);
+							bw.write("prediction\t" + requestId + "\t" + timeStampAsLong + "\t" + responseTime + "\t" + itemId+ "\t" + userId + "\t" + domainId + "\t" + result + (data.length > 5? "\t" + data[5]:""));
 							bw.newLine();
 						} catch (Exception e) {
 							logger.warn(e.toString(), e);
